@@ -77,29 +77,38 @@ class NodeEntity
   end
 
   # create object for each file/directory, and collect attributes to be serialized.
-  def scan_dirs(paths)
+  def scan_dirs(paths, is_dir=false)
     paths.each do |dir_obj|
+      # expand relative path of file/directory.
       dir_obj = File::expand_path(dir_obj)
-      Find.find(dir_obj) do |ent|
-        dir_ent = DirEntity.new(ent)
-        # get SHA 256 if it's a file
-        if File.ftype(ent) == 'file'
-          dir_ent.file_hash = Digest::SHA256.file(ent) 
-        else
-          dir_ent.is_dir = true
+      dir_ent = DirEntity.new(ent)
+      
+      # stat both files and directories to be stored.
+      stat = File::Stat.new(ent)
+      dir_ent.perms = sprintf("%o", stat.mode)
+      dir_ent.owner, dir_ent.group = stat.uid, stat.gid 
+      dir_ent.is_dir = false
+  
+      # if directory, recurse.
+      if File.ftype(dir_obj) == 'directory'
+        Find.find(dir_obj) do |ent|
+          # get SHA 256 if it's a file
+          if File.ftype(ent) == 'file'
+            dir_ent.file_hash = Digest::SHA256.file(ent) 
+          else
+            dir_ent.is_dir = true
+          end
         end
-        # stat both files and directories to be stored.
-        stat = File::Stat.new(ent)
-        dir_ent.perms = sprintf("%o", stat.mode)
-        dir_ent.owner, dir_ent.group = stat.uid, stat.gid 
+      else
+        dir_ent.file_hash = Digest::SHA256.file(ent)
+      end 
+          
+      # extra output for debugging.
+      dir_ent.report
+      dir_ent.print_json
         
-        # extra output for debugging.
-        dir_ent.report
-        dir_ent.print_json
-        
-        # append to filesystem object array.
-        @fsys_objects << dir_ent.create_json
-      end
+      # append to filesystem object array.
+      @fsys_objects << dir_ent.create_json
     end
   end
 
@@ -114,5 +123,11 @@ class NodeEntity
       end
       f.close
     end
+  end
+
+  private
+
+  def get_file_props(ent)
+    stat = File::Stat.new(ent)
   end
 end 
