@@ -32,7 +32,10 @@ action :baseline do
 end
 
 action :check do
-
+  check_gems
+  @recursive = @new_resource.recursive
+  @node_obj = NodeEntity.new
+  @node_obj.load_json(@new_resource.cache_dir, node.hostname)
 end
 
 private 

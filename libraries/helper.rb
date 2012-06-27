@@ -77,43 +77,33 @@ class NodeEntity
   end
 
   # create object for each file/directory, and collect attributes to be serialized.
-  def scan_dirs(paths, is_dir=false)
-    paths.each do |dir_obj|
-      # expand relative path of file/directory.
-      dir_obj = File::expand_path(dir_obj)
+  def scan_dirs(path)
+    #paths.each do |dir_obj|
+    dir_obj = File::expand_path(path)
+    Find.find(dir_obj) do |ent|
       dir_ent = DirEntity.new(ent)
-      
+      # get SHA 256 if it's a file
+      if File.ftype(ent) == 'file'
+        dir_ent.file_hash = Digest::SHA256.file(ent) 
+      else
+        dir_ent.is_dir = true
+      end
       # stat both files and directories to be stored.
       stat = File::Stat.new(ent)
       dir_ent.perms = sprintf("%o", stat.mode)
       dir_ent.owner, dir_ent.group = stat.uid, stat.gid 
-      dir_ent.is_dir = false
-  
-      # if directory, recurse.
-      if File.ftype(dir_obj) == 'directory'
-        Find.find(dir_obj) do |ent|
-          # get SHA 256 if it's a file
-          if File.ftype(ent) == 'file'
-            dir_ent.file_hash = Digest::SHA256.file(ent) 
-          else
-            dir_ent.is_dir = true
-          end
-        end
-      else
-        dir_ent.file_hash = Digest::SHA256.file(ent)
-      end 
-          
+        
       # extra output for debugging.
-      dir_ent.report
-      dir_ent.print_json
+      # dir_ent.report
+      # dir_ent.print_json
         
       # append to filesystem object array.
       @fsys_objects << dir_ent.create_json
     end
   end
 
-  def dump_json(directory)
-    @node = 'test'
+  def dump_json(directory, node)
+    @node = node
     @filename = "#{directory}/#{@node}.json"
     unless File.exists?("#{@filename}")
       f = File.new("#{@filename}", "w") 
@@ -125,9 +115,19 @@ class NodeEntity
     end
   end
 
-  private
+  def load_json(directory, node)
+    @node = node
+    @json_file = "#{directory}/#{@node}.json"
+    f = File.open(@json_file)
 
-  def get_file_props(ent)
-    stat = File::Stat.new(ent)
+    # Deserialize JSON data.
+    f.each do |line|
+      j = JSON.load(line)
+      @fsys_objects << j
+      # @filename, @obj = j.shift
+    end
+
+    f.close
+    puts @fsys_objects
   end
 end 

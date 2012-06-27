@@ -19,4 +19,4 @@
 #
 
 default['cache_dir'] = Chef::Config[:file_cache_path]
-default['monitored_objects'] = [ '/etc/hosts', '/var' ]
+default['monitored_objects'] = [ '/etc', '/var/log/syslog' ]
