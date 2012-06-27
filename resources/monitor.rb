@@ -21,3 +21,4 @@
 action :baseline, :check
 
 attribute :paths, :kind_of => Array, :name_attribute => true
+attribute :recursive, :kind_of => [ TrueClass, FalseClass ]

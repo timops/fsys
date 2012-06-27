@@ -18,6 +18,20 @@
 # limitations under the License.
 #
 
+begin
+  require 'digest'
+  require 'json'
+rescue LoadError
+  Chef::Log.info("Missing required gems, installing now.")
+  %w(digest json).each do |gempkg|
+    chef_gem gempkg do
+      action :install
+    end
+  end
+  require 'digest'
+  require 'json'
+end
+
 action :baseline do
 
 end
