@@ -18,24 +18,39 @@
 # limitations under the License.
 #
 
-begin
-  require 'digest'
-  require 'json'
-rescue LoadError
-  Chef::Log.info("Missing required gems, installing now.")
-  %w(digest json).each do |gempkg|
-    chef_gem gempkg do
-      action :install
-    end
-  end
-  require 'digest'
-  require 'json'
-end
 
 action :baseline do
-
+  check_gems
+  # Right now, only supports recursion.  The resource attribute on the next line doesn't do anything at the moment.
+  @recursive = @new_resource.recursive
+  @node_obj = NodeEntity.new  
+  @new_resource.paths.each do |path|
+    # Populate all the fsys objects which the NodeEntity is composed of.
+    @node_obj.scan_dirs(path)
+  end
+  @node_obj.dump_json(@new_resource.cache_dir, node.hostname)
 end
 
 action :check do
 
+end
+
+private 
+
+def check_gems
+  begin
+    require 'digest'
+    require 'json'
+    require 'fileutils'
+  rescue LoadError
+    Chef::Log.info("Missing required gems, installing now.")
+    %w(digest json fileutils).each do |gempkg|
+      chef_gem gempkg do
+        action :install
+      end
+    end
+    require 'digest'
+    require 'json'
+    require 'fileutils'
+  end
 end

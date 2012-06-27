@@ -18,7 +18,8 @@
 # limitations under the License.
 #
 
-action :baseline, :check
+actions :baseline, :check
 
-attribute :paths, :kind_of => Array, :name_attribute => true
+attribute :paths, :kind_of => Array
 attribute :recursive, :kind_of => [ TrueClass, FalseClass ]
+attribute :cache_dir, :kind_of => String

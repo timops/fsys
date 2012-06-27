@@ -1,12 +1,33 @@
-#!/usr/bin/env ruby -w
+#                                                                                                                                                         
+# Author:: Tim Green <tgreen@opscode.com>
+# Cookbook Name:: fsys
+# Resource:: monitor
+#
+# Copyright 2012, Opscode, Inc
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
 
 require 'json'
 require 'digest'
 require 'find'
 
-files_and_dirs = [ '~/chef-repo/cookbooks', '~/chef-repo/README.md', '/Users/timgreen/chef-repo/ec2-boot.sh' ] 
 
 class DirEntity
+
+  include Enumerable
+
   attr_accessor :filename
   attr_accessor :file_hash
   attr_accessor :perms
@@ -71,15 +92,18 @@ class NodeEntity
         stat = File::Stat.new(ent)
         dir_ent.perms = sprintf("%o", stat.mode)
         dir_ent.owner, dir_ent.group = stat.uid, stat.gid 
-
+        
+        # extra output for debugging.
         dir_ent.report
         dir_ent.print_json
+        
+        # append to filesystem object array.
         @fsys_objects << dir_ent.create_json
       end
     end
   end
 
-  def dump_json(directory, node)
+  def dump_json(directory)
     @node = 'test'
     @filename = "#{directory}/#{@node}.json"
     unless File.exists?("#{@filename}")
@@ -92,17 +116,3 @@ class NodeEntity
     end
   end
 end 
-
-n = NodeEntity.new
-n.scan_dirs(files_and_dirs)
-n.dump_json('/tmp')
-
-f = File.open('/private/tmp/test.json')
-
-f.each do |line|
-  j = JSON.load(line)
-  filename, obj = j.shift
-  if obj['directory'] == false
-    puts obj['file_hash']
-  end
-end
