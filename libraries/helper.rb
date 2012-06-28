@@ -23,9 +23,11 @@ require 'json'
 require 'digest'
 require 'find'
 
-
+# DirEntity object will contain an individual file, directory, etc.
+# properties of these object consists of:
+# SHA256 hash of contents.
+# File::Stat information we are interested in keeping (perms, ownership, mtime)
 class DirEntity
-
   include Enumerable
 
   attr_accessor :filename
@@ -74,11 +76,11 @@ class DirEntity
 
   def to_hash
     h = {}
-    h[@filename] = { 'directory' => @is_dir, 'file_hash' => @file_hash, 'owner' => @owner, 'group' => @group, 'perms' => @perms, 'mtime' => @mtime }
+    h = { 'filename' => @filename, 'directory' => @is_dir, 'file_hash' => @file_hash, 'owner' => @owner, 'group' => @group, 'perms' => @perms, 'mtime' => @mtime }
   end
-
 end
 
+# collection of DirEntity objects for individual node.  selections provided by end user (via recipe attributes).
 class NodeEntity
   def initialize
     @fsys_objects = [] 
@@ -86,6 +88,7 @@ class NodeEntity
 
   # create a DirEntity object for each file/directory in the specified directory.
   # the filesystem objects get appended to an array of hashes - @fsys_objects.
+  # output: array of DirEntity objects.
   def scan_dirs(path)
     #paths.each do |dir_obj|
     dir_obj = File::expand_path(path)
@@ -93,7 +96,7 @@ class NodeEntity
       dir_ent = DirEntity.new(ent)
       # get SHA 256 if it's a file
       if File.ftype(ent) == 'file'
-        dir_ent.file_hash = Digest::SHA256.file(ent) 
+        dir_ent.file_hash = Digest::SHA256.file(ent).to_s
       elsif File.ftype(ent) == 'directory'
         dir_ent.is_dir = true
       else File.ftype(ent) == 'link'
@@ -103,23 +106,31 @@ class NodeEntity
       # stat both files and directories to be stored.
       stat = File::Stat.new(ent)
       dir_ent.perms = sprintf("%o", stat.mode)
-      dir_ent.owner, dir_ent.group, dir_ent.mtime = stat.uid, stat.gid, stat.mtime
+      dir_ent.owner, dir_ent.group, dir_ent.mtime = stat.uid, stat.gid, stat.mtime.to_s
         
       # extra output for debugging.
       # dir_ent.report
       # dir_ent.print_json
         
       # append to filesystem object array.
-      @fsys_objects << dir_ent.to_hash
+      @fsys_objects << dir_ent
     end
   end
 
   # dump @fsys_objects to valid JSON file in specified directory.
-  def dump_json(directory, node)
+  # output: node JSON file.
+  def dump_json(directory, node, force=false)
     @node = node
     @filename = "#{directory}/#{@node}.json"
+
+    # force_update is enabled, so remove the baseline.
+    if File.exists?("#{@filename}") && force
+      FileUtils.rm("#{@filename}") 
+    end
+    # if the file already exists and force_update is false, skip the next codepath.
     unless File.exists?("#{@filename}")
       f = File.new("#{@filename}", "w") 
+      # Serialize DirEntity objects as JSON.
       @fsys_objects.each do |dir_ent|
         f << "#{dir_ent.create_json}\n"
       end
@@ -128,18 +139,26 @@ class NodeEntity
   end
 
   # return individual filesystem object to caller.
+  # output: string, hash
   def get_node_object
     unless @fsys_objects.empty?
       @fsys_objects.each do |fs_obj|
-        puts fs_obj.class
-        puts fs_obj
-        @filename, @obj = fs_obj.shift
+        # the scan_dirs method returns an array of DirEntity objects. convert to hashes.
+        if fs_obj.class != Hash
+          fs_obj = fs_obj.to_hash
+          @filename = fs_obj['filename']
+          fs_obj.delete('filename')
+          @obj = fs_obj
+        else
+          @filename, @obj = fs_obj.shift
+        end
         yield @filename, @obj
       end
     end
   end
 
   # load JSON baseline from disk.
+  # output: array of hashes
   def load_json(directory, node)
     @node = node
     @json_file = "#{directory}/#{@node}.json"
@@ -148,14 +167,11 @@ class NodeEntity
     rescue Errno::ENOENT => no_baseline
       Chef::Log.info("Baseline for this node does not exist.  Did you use action :baseline first?")
     end
-
-    # Deserialize JSON data.
+    # load JSON to array of hashes.
     f.each do |line|
       j = JSON.load(line)
       @fsys_objects << j
-      # @filename, @obj = j.shift
     end
-
     f.close
   end
 end 

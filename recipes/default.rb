@@ -28,5 +28,6 @@
 fsys_monitor "etc" do
   paths node['monitored_objects']
   cache_dir node['cache_dir']
-  action :check
+  action :check 
+  force_update false
 end
