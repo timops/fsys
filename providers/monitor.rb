@@ -60,9 +60,9 @@ action :check do
       # if the filename is a match, we should compare stats.
       if fname == fnew
         if stats == stats_new
-          puts "[LOG]: #{fname} has not changed."
+          # puts "[LOG]: #{fname} has not changed."
         else
-          puts "[LOG]: #{fname} has changed!"
+          # puts "[LOG]: #{fname} has changed!"
           @delta[fname] = {}
           @delta[fname]['old'] = stats
           @delta[fname]['new'] = stats_new
@@ -73,7 +73,7 @@ action :check do
       end
     end
   end
-  report_results(@delta) 
+  report_results(@baseline, @new_data, @delta) 
 end
 
 private 
@@ -96,21 +96,55 @@ def check_gems
   end
 end
 
-def report_results(delta)
-  @num_changed = delta.size
+# meta level report of changed files/attributes.
+def report_results(baseline, new_data, delta)
   puts %(\t----------------
          summary report for node #{node.hostname}
-         Total files changed: #{@num_changed}
-         ----------------
+        ----------------
         )
-  delta.each do |fname, stats|
-    puts "#{fname}"
-    puts "----------------------------------\n"
+  puts "Total files changed: #{delta.size}"
+  puts "\n\n"
+  if delta.size > 0
+    delta.each do |fname, stats|
+      puts "#{fname}"
+      puts "----------------------------------\n"
+      stats_report(stats)
+      puts "\n\n"
+    end
+  end
+  puts "Total files removed: #{baseline.size}"
+  puts "\n\n"
+  if baseline.size > 0
+    baseline.each do |fname, stats|
+      puts "#{fname}"
+      puts "----------------------------------\n"
+      stats_report(stats, true)
+      puts "\n\n"
+    end
+  end
+  puts "Total files added: #{new_data.size}"
+  puts "\n\n"
+  if new_data.size > 0
+    new_data.each do |fname, stats|
+      puts "#{fname}"
+      puts "----------------------------------\n"
+      stats_report(stats, true)
+      puts "\n\n"
+    end
+  end
+end
+
+# report if (and only if) the file statistic (owner, group, etc.) has changed.
+def stats_report(stats, extra_files=false)
+  if extra_files == true
+    stats.each do |key, val|
+      puts "#{key}: #{val}"
+    end
+  else
     stats['old'].each do |key, val|
       if stats['old'][key] != stats['new'][key]
         puts "#{key}: #{stats['old'][key]} | #{stats['new'][key]}"
       end
     end
-    puts "\n\n"
   end
 end
