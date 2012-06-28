@@ -32,10 +32,31 @@ action :baseline do
 end
 
 action :check do
+  @source = {}
+  @dest = {}
+
   check_gems
   @recursive = @new_resource.recursive
-  @node_obj = NodeEntity.new
-  @node_obj.load_json(@new_resource.cache_dir, node.hostname)
+  @node_saved = NodeEntity.new
+  @node_saved.load_json(@new_resource.cache_dir, node.hostname)
+
+  @node_new = NodeEntity.new
+  @new_resource.paths.each do |path|
+    @node_new.scan_dirs(path)
+  end
+
+  @node_new.get_node_object do |fname, attribs|
+    @source[fname] = {}
+    @source[fname] = attribs  
+  end
+ 
+  @node_saved.get_node_object do |fname, attribs|
+    @dest[fname] = {}
+    @dest[fname] = attribs
+  end 
+
+  puts @source
+  puts @dest
 end
 
 private 
